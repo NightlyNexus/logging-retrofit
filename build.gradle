@@ -1,0 +1,62 @@
+buildscript {
+  ext.versions = [
+          'errorProne'             : '2.1.2',
+          'errorProneGradlePlugin' : '0.0.13',
+          'junit'                  : '4.12',
+          'okhttp'                 : '3.9.1',
+          'okio'                   : '1.13.0',
+          'retrofit'               : '2.3.0',
+          'truth'                  : '0.36']
+
+  ext.deps = [
+          'errorProneGradlePlugin' : "net.ltgt.gradle:gradle-errorprone-plugin:$versions.errorProneGradlePlugin",
+          'junit'                  : "junit:junit:$versions.junit",
+          'okhttp'                 : [
+                                       "core" : "com.squareup.okhttp3:okhttp:$versions.okhttp",
+                                       "mockwebserver" : "com.squareup.okhttp3:mockwebserver:$versions.okhttp"
+                                     ],
+          'okio'                   : "com.squareup.okio:okio:$versions.okio",
+          'retrofit'               : "com.squareup.retrofit2:retrofit:$versions.retrofit",
+          'truth'                  : "com.google.truth:truth:$versions.truth"]
+
+  dependencies {
+    classpath deps.errorProneGradlePlugin
+  }
+
+  repositories {
+    maven { url 'https://plugins.gradle.org/m2/' }
+  }
+}
+
+allprojects {
+  apply plugin: 'checkstyle'
+  apply plugin: 'net.ltgt.errorprone'
+
+  group = GROUP
+  version = VERSION_NAME
+
+  repositories {
+    mavenCentral()
+  }
+
+  checkstyle {
+    configFile rootProject.file('checkstyle.xml')
+    toolVersion = '7.7'
+  }
+
+  tasks.withType(JavaCompile) {
+    options.compilerArgs += ['-Xlint:all', '-Werror']
+  }
+
+  configurations.all {
+    resolutionStrategy {
+      eachDependency { details ->
+        // Force all the error-prone dependencies to use the same version.
+        if (details.requested.group == 'com.google.errorprone' &&
+                details.requested.name.startsWith('error_prone_')) {
+          details.useVersion versions.errorProne
+        }
+      }
+    }
+  }
+}

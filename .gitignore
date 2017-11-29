@@ -1,0 +1,14 @@
+# IntelliJ
+.idea
+*.iml
+
+# OS X
+.DS_Store
+
+# Gradle
+.gradle
+build
+local.properties
+reports
+
+out
