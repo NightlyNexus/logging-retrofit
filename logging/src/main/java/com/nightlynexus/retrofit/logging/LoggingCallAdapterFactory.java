@@ -166,12 +166,12 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
     // TODO: then he will log fatal errors in enqueue but not in execute.
     // TODO: So, don't force the version lower!
     // Retrofit 2.4.0 and newer.
-    static boolean RETROFIT_THROWS_FATAL_ERRORS = false;
+    private static boolean RETROFIT_THROWS_FATAL_ERRORS = false;
 
     // TODO: Replace with the tag on Retrofit 2.4.0 when it is released.
     //https://github.com/square/retrofit/blob/fc1b11249faefc4ef21a576e34e457529ea9fa9d/retrofit/
     // src/main/java/retrofit2/Utils.java#L500
-    static boolean isFatal(Throwable e) {
+    private static boolean isFatal(Throwable e) {
       return e instanceof VirtualMachineError
           || e instanceof ThreadDeath
           || e instanceof LinkageError;

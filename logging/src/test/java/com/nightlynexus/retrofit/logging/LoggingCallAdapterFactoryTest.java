@@ -7,7 +7,6 @@ import java.lang.reflect.Type;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import okhttp3.MediaType;
 import okhttp3.ResponseBody;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -34,8 +33,7 @@ import static org.junit.Assert.fail;
 @RunWith(JUnit4.class)
 public final class LoggingCallAdapterFactoryTest {
   @Test public void errorMessageHelperDoesNotConsumeErrorBody() throws IOException {
-    MediaType mediaType = MediaType.parse("application/json; charset=UTF-8");
-    ResponseBody errorBody = ResponseBody.create(mediaType, "This request failed.");
+    ResponseBody errorBody = ResponseBody.create(null, "This request failed.");
     BufferedSource source = errorBody.source();
     assertThat(LoggingCallAdapterFactory.errorMessage(errorBody)).isEqualTo("This request failed.");
     assertThat(source.buffer().size()).isEqualTo(20);
@@ -43,6 +41,17 @@ public final class LoggingCallAdapterFactoryTest {
     String errorBodyUtf8 = source.readUtf8();
     assertThat(errorBodyUtf8).isEqualTo("This request failed.");
     assertThat(source.exhausted()).isTrue();
+  }
+
+  @Test public void errorMessageHelperReturnsEmptyStringForEmptyBody() throws IOException {
+    ResponseBody errorBody = ResponseBody.create(null, new byte[0]);
+    assertThat(LoggingCallAdapterFactory.errorMessage(errorBody)).isEmpty();
+  }
+
+  @Test public void errorMessageHelperChecksForPlainText() throws IOException {
+    ResponseBody errorBody = ResponseBody.create(null, String.valueOf((char) 0x9F));
+    assertThat(LoggingCallAdapterFactory.errorMessage(errorBody))
+        .isEqualTo("Error body is not plain text.");
   }
 
   private interface Service {
@@ -364,15 +373,15 @@ public final class LoggingCallAdapterFactoryTest {
     };
     Call<Void> call = service.postRequestBody(a);
     final CountDownLatch latch = new CountDownLatch(1);
-      call.enqueue(new Callback<Void>() {
-        @Override public void onResponse(Call<Void> call, Response<Void> response) {
-          throw new AssertionError();
-        }
+    call.enqueue(new Callback<Void>() {
+      @Override public void onResponse(Call<Void> call, Response<Void> response) {
+        throw new AssertionError();
+      }
 
-        @Override public void onFailure(Call<Void> call, Throwable t) {
-          latch.countDown();
-        }
-      });
+      @Override public void onFailure(Call<Void> call, Throwable t) {
+        latch.countDown();
+      }
+    });
     assertThat(latch.await(10, SECONDS)).isTrue();
     assertThat(failureRef.get()).isInstanceOf(OutOfMemoryError.class);
     assertThat(failureRef.get()).hasMessageThat().isEqualTo("Broken!");
