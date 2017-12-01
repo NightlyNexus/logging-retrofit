@@ -3,7 +3,6 @@ Logging-Retrofit
 
 A Retrofit CallAdapter.Factory for transparent logging.
 
-TODO: Download coming very soon!
 
 Download
 --------
@@ -29,6 +28,23 @@ Usage
 -----
 
 TODO
+```java
+LoggingCallAdapterFactory.Logger logger = new LoggingCallAdapterFactory.Logger() {
+  @Override public <T> void onResponse(Call<T> call, Response<T> response) {
+    // Implement.
+  }
+
+  @Override public <T> void onFailure(Call<T> call, Throwable t) {
+    // Implement.
+  }
+};
+Retrofit retrofit = new Retrofit.Builder()
+    // Add the LoggingCallAdapterFactory before other CallAdapters factories
+    // to let it delegate and log all types of calls.
+    .addCallAdapterFactory(new LoggingCallAdapterFactory(logger))
+    ...
+    .build();
+```
 
 
 License

@@ -17,9 +17,17 @@ import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 
+/**
+ * A CallAdapter.Factory that intercepts calls' synchronous executions and asynchronously called
+ * callbacks and logs the responses and failures to the given {@link Logger}.
+ */
 public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
   private static final Charset UTF_8 = Charset.forName("UTF-8");
 
+  /**
+   * A logger for the results of calls.
+   * Note that these logger methods are called on the thread provided by OkHttp's dispatcher.
+   */
   public interface Logger {
     <T> void onResponse(Call<T> call, Response<T> response);
 
@@ -35,6 +43,8 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
   /**
    * Reads a {@link ResponseBody} as a string. This is useful for logging error bodies.
    * Clones the source's {@link Buffer}, so that the body is not consumed.
+   * Warning: Error bodies can be very large because they can come from unexpected sources.
+   * Only call this method if you are sure you can buffer the entire body into memory.
    */
   public static String errorMessage(ResponseBody errorBody) throws IOException {
     if (errorBody.contentLength() == 0) {
