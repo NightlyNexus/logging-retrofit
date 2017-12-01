@@ -27,6 +27,7 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
   /**
    * A logger for the results of calls.
    * Note that these logger methods are called on the thread provided by OkHttp's dispatcher.
+   * It is an error to mutate the call from these methods.
    */
   public interface Logger {
     <T> void onResponse(Call<T> call, Response<T> response);
