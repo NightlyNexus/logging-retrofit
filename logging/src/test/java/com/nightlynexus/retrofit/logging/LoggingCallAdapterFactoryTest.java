@@ -12,7 +12,6 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.SocketPolicy;
 import okio.BufferedSource;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -119,6 +118,28 @@ public final class LoggingCallAdapterFactoryTest {
     assertThat(latch.await(10, SECONDS)).isTrue();
   }
 
+  @Test public void executeLogsOnResponse() throws Exception {
+    MockWebServer server = new MockWebServer();
+    final AtomicBoolean onResponseCalled = new AtomicBoolean();
+    Retrofit retrofit = new Retrofit.Builder().baseUrl(server.url("/"))
+        .addCallAdapterFactory(
+            new LoggingCallAdapterFactory(new LoggingCallAdapterFactory.Logger() {
+              @Override public <T> void onResponse(Call<T> call, Response<T> response) {
+                onResponseCalled.set(true);
+              }
+
+              @Override public <T> void onFailure(Call<T> call, Throwable t) {
+                throw new AssertionError();
+              }
+            }))
+        .addConverterFactory(new ToStringConverterFactory())
+        .build();
+    Service service = retrofit.create(Service.class);
+    server.enqueue(new MockResponse());
+    service.getString().execute();
+    assertThat(onResponseCalled.get()).isTrue();
+  }
+
   @Test public void enqueueLogsOnFailure() throws InterruptedException {
     MockWebServer server = new MockWebServer();
     final CountDownLatch latch = new CountDownLatch(1);
@@ -146,28 +167,6 @@ public final class LoggingCallAdapterFactoryTest {
       }
     });
     assertThat(latch.await(10, SECONDS)).isTrue();
-  }
-
-  @Test public void executeLogsOnResponse() throws Exception {
-    MockWebServer server = new MockWebServer();
-    final AtomicBoolean onResponseCalled = new AtomicBoolean();
-    Retrofit retrofit = new Retrofit.Builder().baseUrl(server.url("/"))
-        .addCallAdapterFactory(
-            new LoggingCallAdapterFactory(new LoggingCallAdapterFactory.Logger() {
-              @Override public <T> void onResponse(Call<T> call, Response<T> response) {
-                onResponseCalled.set(true);
-              }
-
-              @Override public <T> void onFailure(Call<T> call, Throwable t) {
-                throw new AssertionError();
-              }
-            }))
-        .addConverterFactory(new ToStringConverterFactory())
-        .build();
-    Service service = retrofit.create(Service.class);
-    server.enqueue(new MockResponse());
-    service.getString().execute();
-    assertThat(onResponseCalled.get()).isTrue();
   }
 
   @Test public void executeLogsOnFailure() throws Exception {
@@ -272,6 +271,85 @@ public final class LoggingCallAdapterFactoryTest {
     assertThat(failureRef.get()).hasMessageThat().isEqualTo("Broken!");
   }
 
+  // TODO: Remove. onFailure should not be called. https://github.com/square/retrofit/pull/2692
+  @Test public void enqueueDoesNotLogOnFailureExceptionsFatal() throws Exception {
+    MockWebServer server = new MockWebServer();
+    final CountDownLatch latch = new CountDownLatch(1);
+    final AtomicReference<Throwable> failureRef = new AtomicReference<>();
+    Retrofit retrofit = new Retrofit.Builder().baseUrl(server.url("/"))
+        .addCallAdapterFactory(
+            new LoggingCallAdapterFactory(new LoggingCallAdapterFactory.Logger() {
+              @Override public <T> void onResponse(Call<T> call, Response<T> response) {
+                throw new AssertionError();
+              }
+
+              @Override public <T> void onFailure(Call<T> call, Throwable t) {
+                failureRef.set(t);
+              }
+            }))
+        .addConverterFactory(new Converter.Factory() {
+          @Override public Converter<ResponseBody, ?> responseBodyConverter(Type type,
+              Annotation[] annotations, Retrofit retrofit) {
+            return new Converter<ResponseBody, Object>() {
+              @Override public Object convert(ResponseBody value) throws IOException {
+                throw new OutOfMemoryError("Broken!");
+              }
+            };
+          }
+        })
+        .build();
+    Service service = retrofit.create(Service.class);
+    server.enqueue(new MockResponse());
+    service.getString().enqueue(new Callback<String>() {
+      @Override public void onResponse(Call<String> call, Response<String> response) {
+        throw new AssertionError();
+      }
+
+      @Override public void onFailure(Call<String> call, Throwable t) {
+        latch.countDown();
+      }
+    });
+    assertThat(latch.await(10, SECONDS)).isTrue();
+    assertThat(failureRef.get()).isNull();
+  }
+
+  // TODO: Remove? Duplicate of executeDoesNotLogRequestCreationFailureFatal() in practice.
+  // Exists as a pair to enqueueDoesNotLogOnFailureExceptionsFatal().
+  @Test public void executeDoesNotLogOnFailureExceptionsFatal() throws Exception {
+    MockWebServer server = new MockWebServer();
+    final AtomicReference<Throwable> failureRef = new AtomicReference<>();
+    Retrofit retrofit = new Retrofit.Builder().baseUrl(server.url("/"))
+        .addCallAdapterFactory(
+            new LoggingCallAdapterFactory(new LoggingCallAdapterFactory.Logger() {
+              @Override public <T> void onResponse(Call<T> call, Response<T> response) {
+                throw new AssertionError();
+              }
+
+              @Override public <T> void onFailure(Call<T> call, Throwable t) {
+                failureRef.set(t);
+              }
+            }))
+        .addConverterFactory(new Converter.Factory() {
+          @Override public Converter<ResponseBody, ?> responseBodyConverter(Type type,
+              Annotation[] annotations, Retrofit retrofit) {
+            return new Converter<ResponseBody, Object>() {
+              @Override public Object convert(ResponseBody value) throws IOException {
+                throw new OutOfMemoryError("Broken!");
+              }
+            };
+          }
+        })
+        .build();
+    Service service = retrofit.create(Service.class);
+    server.enqueue(new MockResponse());
+    try {
+      service.getString().execute();
+      throw new AssertionError();
+    } catch (OutOfMemoryError ignored) {
+    }
+    assertThat(failureRef.get()).isNull();
+  }
+
   @Test public void enqueueLogsRequestCreationFailure() {
     MockWebServer server = new MockWebServer();
     final AtomicReference<Throwable> failureRef = new AtomicReference<>();
@@ -345,85 +423,6 @@ public final class LoggingCallAdapterFactoryTest {
     assertThat(failureRef.get()).hasMessageThat().isEqualTo("Broken!");
   }
 
-  // TODO: Remove with Retrofit 2.4.0.
-  @Test public void enqueueLogsRequestCreationFailureFatal() throws InterruptedException {
-    MockWebServer server = new MockWebServer();
-    final AtomicReference<Throwable> failureRef = new AtomicReference<>();
-    Retrofit retrofit = new Retrofit.Builder().baseUrl(server.url("/"))
-        .addCallAdapterFactory(
-            new LoggingCallAdapterFactory(new LoggingCallAdapterFactory.Logger() {
-              @Override public <T> void onResponse(Call<T> call, Response<T> response) {
-                throw new AssertionError();
-              }
-
-              @Override public <T> void onFailure(Call<T> call, Throwable t) {
-                failureRef.set(t);
-              }
-            }))
-        .addConverterFactory(new ToStringConverterFactory())
-        .build();
-    Service service = retrofit.create(Service.class);
-
-    server.enqueue(new MockResponse());
-
-    Object a = new Object() {
-      @Override public String toString() {
-        throw new OutOfMemoryError("Broken!");
-      }
-    };
-    Call<Void> call = service.postRequestBody(a);
-    final CountDownLatch latch = new CountDownLatch(1);
-    call.enqueue(new Callback<Void>() {
-      @Override public void onResponse(Call<Void> call, Response<Void> response) {
-        throw new AssertionError();
-      }
-
-      @Override public void onFailure(Call<Void> call, Throwable t) {
-        latch.countDown();
-      }
-    });
-    assertThat(latch.await(10, SECONDS)).isTrue();
-    assertThat(failureRef.get()).isInstanceOf(OutOfMemoryError.class);
-    assertThat(failureRef.get()).hasMessageThat().isEqualTo("Broken!");
-  }
-
-  // TODO: Remove with Retrofit 2.4.0.
-  @Test public void executeLogsRequestCreationFailureFatal() throws IOException {
-    MockWebServer server = new MockWebServer();
-    final AtomicReference<Throwable> failureRef = new AtomicReference<>();
-    Retrofit retrofit = new Retrofit.Builder().baseUrl(server.url("/"))
-        .addCallAdapterFactory(
-            new LoggingCallAdapterFactory(new LoggingCallAdapterFactory.Logger() {
-              @Override public <T> void onResponse(Call<T> call, Response<T> response) {
-                throw new AssertionError();
-              }
-
-              @Override public <T> void onFailure(Call<T> call, Throwable t) {
-                failureRef.set(t);
-              }
-            }))
-        .addConverterFactory(new ToStringConverterFactory())
-        .build();
-    Service service = retrofit.create(Service.class);
-
-    server.enqueue(new MockResponse());
-
-    Object a = new Object() {
-      @Override public String toString() {
-        throw new OutOfMemoryError("Broken!");
-      }
-    };
-    Call<Void> call = service.postRequestBody(a);
-    try {
-      call.execute();
-      throw new AssertionError();
-    } catch (OutOfMemoryError ignored) {
-    }
-    assertThat(failureRef.get()).isInstanceOf(OutOfMemoryError.class);
-    assertThat(failureRef.get()).hasMessageThat().isEqualTo("Broken!");
-  }
-
-  @Ignore("Retrofit 2.4.0")
   @Test public void enqueueDoesNotLogRequestCreationFailureFatal() throws InterruptedException {
     MockWebServer server = new MockWebServer();
     final AtomicReference<Throwable> failureRef = new AtomicReference<>();
@@ -450,7 +449,6 @@ public final class LoggingCallAdapterFactoryTest {
       }
     };
     Call<Void> call = service.postRequestBody(a);
-    final CountDownLatch latch = new CountDownLatch(1);
     try {
       call.enqueue(new Callback<Void>() {
         @Override public void onResponse(Call<Void> call, Response<Void> response) {
@@ -458,17 +456,15 @@ public final class LoggingCallAdapterFactoryTest {
         }
 
         @Override public void onFailure(Call<Void> call, Throwable t) {
-          latch.countDown();
+          throw new AssertionError();
         }
       });
       throw new AssertionError();
     } catch (OutOfMemoryError ignored) {
     }
-    assertThat(latch.await(10, SECONDS)).isTrue();
     assertThat(failureRef.get()).isNull();
   }
 
-  @Ignore("Retrofit 2.4.0")
   @Test public void executeDoesNotLogRequestCreationFailureFatal() throws IOException {
     MockWebServer server = new MockWebServer();
     final AtomicReference<Throwable> failureRef = new AtomicReference<>();
