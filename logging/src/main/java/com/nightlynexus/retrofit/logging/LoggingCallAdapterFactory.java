@@ -142,10 +142,11 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
         }
 
         @Override public void onFailure(Call<R> call, Throwable t) {
-          // Retrofit 2.3.0 and prior passes fatal errors in here instead of throwing in enqueue.
-          // Log these fatal errors in Retrofit 2.3.0 and prior
-          // because there is no other way for users to catch them.
-          logger.onFailure(call, t);
+          // Retrofit 2.4.0 may still pass in fatal errors if parseResponse throws a fatal error.
+          // TODO: https://github.com/square/retrofit/pull/2692
+          if (!isFatal(t)) {
+            logger.onFailure(call, t);
+          }
           callback.onFailure(call, t);
         }
       });
@@ -160,10 +161,7 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
       try {
         response = delegate.execute();
       } catch (Throwable t) {
-        // Retrofit 2.3.0 and prior log fatal errors in enqueue, so log them here for symmetry.
-        // Retrofit 2.4.0 and newer don't log fatal errors
-        // because fatal error are thrown in enqueue instead of being passed to the callback.
-        if (!(RETROFIT_THROWS_FATAL_ERRORS && isFatal(t))) {
+        if (!isFatal(t)) {
           logger.onFailure(this, t);
         }
         throw t;
@@ -172,17 +170,9 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
       return response;
     }
 
-    // TODO: Make this true when we depend on 2.4.0.
-    // TODO: If a consumer forces the version lower,
-    // TODO: then he will log fatal errors in enqueue but not in execute.
-    // TODO: So, don't force the version lower!
-    // Retrofit 2.4.0 and newer.
-    private static boolean RETROFIT_THROWS_FATAL_ERRORS = false;
-
-    // TODO: Replace with the tag on Retrofit 2.4.0 when it is released.
-    //https://github.com/square/retrofit/blob/fc1b11249faefc4ef21a576e34e457529ea9fa9d/retrofit/
-    // src/main/java/retrofit2/Utils.java#L500
-    private static boolean isFatal(Throwable e) {
+    // https://github.com/square/retrofit/blob/parent-2.4.0/
+    // retrofit/src/main/java/retrofit2/Utils.java#L496
+    static boolean isFatal(Throwable e) {
       return e instanceof VirtualMachineError
           || e instanceof ThreadDeath
           || e instanceof LinkageError;
