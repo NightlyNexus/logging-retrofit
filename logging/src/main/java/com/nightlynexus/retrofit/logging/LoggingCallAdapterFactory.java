@@ -4,9 +4,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
-import java.nio.charset.Charset;
 import java.util.Locale;
-import okhttp3.MediaType;
 import okhttp3.Request;
 import okhttp3.ResponseBody;
 import okio.Buffer;
@@ -21,11 +19,9 @@ import retrofit2.Retrofit;
  * callbacks and logs the responses and failures to the given {@link Logger}.
  */
 public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
-  private static final Charset UTF_8 = Charset.forName("UTF-8");
-
   /**
    * A logger for the results of calls.
-   * Note that these logger methods are called on the thread provided by OkHttp's dispatcher.
+   * <p>Note that these logger methods are called on the thread provided by OkHttp's dispatcher.
    * It is an error to mutate the call from these methods.
    */
   public interface Logger {
@@ -41,9 +37,9 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
   }
 
   /**
-   * Reads a {@link ResponseBody} as a string. This is useful for logging error bodies.
-   * Clones the source's {@link Buffer}, so that the body is not consumed.
-   * Warning: Error bodies can be very large because they can come from unexpected sources.
+   * Reads a {@link ResponseBody} as a string. This is useful for logging error bodies. Does not
+   * consume the {@code errorBody}.
+   * <p>Warning: Error bodies can be very large because they can come from unexpected sources.
    * Only call this method if you are sure you can buffer the entire body into memory.
    */
   public static String errorMessage(ResponseBody errorBody) throws IOException {
@@ -55,9 +51,7 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
     if (!isPlaintext(buffer)) {
       return "Error body is not plain text.";
     }
-    MediaType contentType = errorBody.contentType();
-    Charset charset = contentType == null ? UTF_8 : contentType.charset(UTF_8);
-    return buffer.readString(charset);
+    return ResponseBody.create(errorBody.contentType(), buffer.size(), buffer).string();
   }
 
   /**
