@@ -12,12 +12,12 @@ Download [the latest JAR][jar] or grab via Maven:
 <dependency>
   <groupId>com.nightlynexus.logging-retrofit</groupId>
   <artifactId>logging</artifactId>
-  <version>0.9.0</version>
+  <version>0.10.0</version>
 </dependency>
 ```
 or Gradle:
 ```groovy
-compile 'com.nightlynexus.logging-retrofit:logging:0.9.0'
+compile 'com.nightlynexus.logging-retrofit:logging:0.10.0'
 ```
 
 TODO: Snapshots of the development version are available in [Sonatype's `snapshots` repository][snap].
@@ -27,7 +27,6 @@ TODO: Snapshots of the development version are available in [Sonatype's `snapsho
 Usage
 -----
 
-TODO
 ```java
 LoggingCallAdapterFactory.Logger logger = new LoggingCallAdapterFactory.Logger() {
   @Override public <T> void onResponse(Call<T> call, Response<T> response) {
