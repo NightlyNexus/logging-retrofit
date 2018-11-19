@@ -10,7 +10,6 @@ import okhttp3.MediaType;
 import okhttp3.Request;
 import okhttp3.ResponseBody;
 import okio.Buffer;
-import okio.BufferedSource;
 import retrofit2.Call;
 import retrofit2.CallAdapter;
 import retrofit2.Callback;
@@ -51,15 +50,14 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
     if (errorBody.contentLength() == 0) {
       return "";
     }
-    BufferedSource source = errorBody.source();
-    source.request(Long.MAX_VALUE); // Buffer the entire body.
-    Buffer buffer = source.buffer();
+    Buffer buffer = new Buffer();
+    buffer.writeAll(errorBody.source().peek());
     if (!isPlaintext(buffer)) {
       return "Error body is not plain text.";
     }
     MediaType contentType = errorBody.contentType();
     Charset charset = contentType == null ? UTF_8 : contentType.charset(UTF_8);
-    return buffer.clone().readString(charset);
+    return buffer.readString(charset);
   }
 
   /**
@@ -123,7 +121,7 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
       if (response.isSuccessful()) {
         logger.onResponse(this, response);
       } else {
-        Buffer buffer = response.errorBody().source().buffer();
+        Buffer buffer = response.errorBody().source().getBuffer();
         long bufferByteCount = buffer.size();
         logger.onResponse(this, response);
         if (bufferByteCount != buffer.size()) {
@@ -142,11 +140,7 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
         }
 
         @Override public void onFailure(Call<R> call, Throwable t) {
-          // Retrofit 2.4.0 may still pass in fatal errors if parseResponse throws a fatal error.
-          // TODO: https://github.com/square/retrofit/pull/2692
-          if (!isFatal(t)) {
-            logger.onFailure(call, t);
-          }
+          logger.onFailure(call, t);
           callback.onFailure(call, t);
         }
       });
@@ -170,8 +164,8 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
       return response;
     }
 
-    // https://github.com/square/retrofit/blob/parent-2.4.0/
-    // retrofit/src/main/java/retrofit2/Utils.java#L496
+    // https://github.com/square/retrofit/blob/parent-2.5.0/
+    // retrofit/src/main/java/retrofit2/Utils.java#L520
     static boolean isFatal(Throwable e) {
       return e instanceof VirtualMachineError
           || e instanceof ThreadDeath

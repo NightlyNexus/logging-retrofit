@@ -35,7 +35,7 @@ public final class LoggingCallAdapterFactoryTest {
     ResponseBody errorBody = ResponseBody.create(null, "This request failed.");
     BufferedSource source = errorBody.source();
     assertThat(LoggingCallAdapterFactory.errorMessage(errorBody)).isEqualTo("This request failed.");
-    assertThat(source.buffer().size()).isEqualTo(20);
+    assertThat(source.getBuffer().size()).isEqualTo(20);
     assertThat(source.exhausted()).isFalse();
     String errorBodyUtf8 = source.readUtf8();
     assertThat(errorBodyUtf8).isEqualTo("This request failed.");
@@ -271,50 +271,6 @@ public final class LoggingCallAdapterFactoryTest {
     assertThat(failureRef.get()).hasMessageThat().isEqualTo("Broken!");
   }
 
-  // TODO: Remove. onFailure should not be called. https://github.com/square/retrofit/pull/2692
-  @Test public void enqueueDoesNotLogOnFailureExceptionsFatal() throws Exception {
-    MockWebServer server = new MockWebServer();
-    final CountDownLatch latch = new CountDownLatch(1);
-    final AtomicReference<Throwable> failureRef = new AtomicReference<>();
-    Retrofit retrofit = new Retrofit.Builder().baseUrl(server.url("/"))
-        .addCallAdapterFactory(
-            new LoggingCallAdapterFactory(new LoggingCallAdapterFactory.Logger() {
-              @Override public <T> void onResponse(Call<T> call, Response<T> response) {
-                throw new AssertionError();
-              }
-
-              @Override public <T> void onFailure(Call<T> call, Throwable t) {
-                failureRef.set(t);
-              }
-            }))
-        .addConverterFactory(new Converter.Factory() {
-          @Override public Converter<ResponseBody, ?> responseBodyConverter(Type type,
-              Annotation[] annotations, Retrofit retrofit) {
-            return new Converter<ResponseBody, Object>() {
-              @Override public Object convert(ResponseBody value) throws IOException {
-                throw new OutOfMemoryError("Broken!");
-              }
-            };
-          }
-        })
-        .build();
-    Service service = retrofit.create(Service.class);
-    server.enqueue(new MockResponse());
-    service.getString().enqueue(new Callback<String>() {
-      @Override public void onResponse(Call<String> call, Response<String> response) {
-        throw new AssertionError();
-      }
-
-      @Override public void onFailure(Call<String> call, Throwable t) {
-        latch.countDown();
-      }
-    });
-    assertThat(latch.await(10, SECONDS)).isTrue();
-    assertThat(failureRef.get()).isNull();
-  }
-
-  // TODO: Remove? Duplicate of executeDoesNotLogRequestCreationFailureFatal() in practice.
-  // Exists as a pair to enqueueDoesNotLogOnFailureExceptionsFatal().
   @Test public void executeDoesNotLogOnFailureExceptionsFatal() throws Exception {
     MockWebServer server = new MockWebServer();
     final AtomicReference<Throwable> failureRef = new AtomicReference<>();
