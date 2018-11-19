@@ -1,12 +1,12 @@
 buildscript {
   ext.versions = [
-          'errorProne'             : '2.2.0',
-          'errorProneGradlePlugin' : '0.0.13',
+          'errorProne'             : '2.3.2',
+          'errorProneGradlePlugin' : '0.0.16',
           'junit'                  : '4.12',
           'okhttp'                 : '3.10.0',
-          'okio'                   : '1.14.0',
-          'retrofit'               : '2.4.0',
-          'truth'                  : '0.39']
+          'okio'                   : '1.16.0',
+          'retrofit'               : '2.5.0',
+          'truth'                  : '0.42']
 
   ext.deps = [
           'errorProneGradlePlugin' : "net.ltgt.gradle:gradle-errorprone-plugin:$versions.errorProneGradlePlugin",
