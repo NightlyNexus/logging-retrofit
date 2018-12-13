@@ -17,7 +17,7 @@ Download [the latest JAR][jar] or grab via Maven:
 ```
 or Gradle:
 ```groovy
-compile 'com.nightlynexus.logging-retrofit:logging:0.10.0'
+implementation 'com.nightlynexus.logging-retrofit:logging:0.10.0'
 ```
 
 TODO: Snapshots of the development version are available in [Sonatype's `snapshots` repository][snap].
