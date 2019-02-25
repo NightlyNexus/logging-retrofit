@@ -22,7 +22,6 @@ import retrofit2.Converter;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.http.GET;
-import retrofit2.http.POST;
 import retrofit2.http.Path;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -56,7 +55,7 @@ public final class LoggingCallAdapterFactoryTest {
   private interface Service {
     @GET("/") Call<String> getString();
 
-    @POST("/{a}") Call<Void> postRequestBody(@Path("a") Object a);
+    @GET("/{a}") Call<Void> getWithPath(@Path("a") Object a);
   }
 
   @Test public void disallowsConsumingErrorBody() throws IOException {
@@ -331,7 +330,7 @@ public final class LoggingCallAdapterFactoryTest {
         throw new RuntimeException("Broken!");
       }
     };
-    Call<Void> call = service.postRequestBody(a);
+    Call<Void> call = service.getWithPath(a);
     call.enqueue(new Callback<Void>() {
       @Override public void onResponse(Call<Void> call, Response<Void> response) {
         throw new AssertionError();
@@ -369,7 +368,7 @@ public final class LoggingCallAdapterFactoryTest {
         throw new RuntimeException("Broken!");
       }
     };
-    Call<Void> call = service.postRequestBody(a);
+    Call<Void> call = service.getWithPath(a);
     try {
       call.execute();
       throw new AssertionError();
@@ -379,7 +378,7 @@ public final class LoggingCallAdapterFactoryTest {
     assertThat(failureRef.get()).hasMessageThat().isEqualTo("Broken!");
   }
 
-  @Test public void enqueueDoesNotLogRequestCreationFailureFatal() throws InterruptedException {
+  @Test public void enqueueDoesNotLogRequestCreationFailureFatal() {
     MockWebServer server = new MockWebServer();
     final AtomicReference<Throwable> failureRef = new AtomicReference<>();
     Retrofit retrofit = new Retrofit.Builder().baseUrl(server.url("/"))
@@ -404,7 +403,7 @@ public final class LoggingCallAdapterFactoryTest {
         throw new OutOfMemoryError("Broken!");
       }
     };
-    Call<Void> call = service.postRequestBody(a);
+    Call<Void> call = service.getWithPath(a);
     try {
       call.enqueue(new Callback<Void>() {
         @Override public void onResponse(Call<Void> call, Response<Void> response) {
@@ -446,7 +445,7 @@ public final class LoggingCallAdapterFactoryTest {
         throw new OutOfMemoryError("Broken!");
       }
     };
-    Call<Void> call = service.postRequestBody(a);
+    Call<Void> call = service.getWithPath(a);
     try {
       call.execute();
       throw new AssertionError();
