@@ -12,12 +12,12 @@ Download [the latest JAR][jar] or grab via Maven:
 <dependency>
   <groupId>com.nightlynexus.logging-retrofit</groupId>
   <artifactId>logging</artifactId>
-  <version>0.10.0</version>
+  <version>0.11.0</version>
 </dependency>
 ```
 or Gradle:
 ```groovy
-implementation 'com.nightlynexus.logging-retrofit:logging:0.10.0'
+implementation 'com.nightlynexus.logging-retrofit:logging:0.11.0'
 ```
 
 TODO: Snapshots of the development version are available in [Sonatype's `snapshots` repository][snap].
