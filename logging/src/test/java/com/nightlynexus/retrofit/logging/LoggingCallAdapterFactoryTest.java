@@ -26,18 +26,13 @@ import retrofit2.http.Path;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.junit.Assert.fail;
 
 @RunWith(JUnit4.class)
 public final class LoggingCallAdapterFactoryTest {
-  @Test public void errorMessageHelperDoesNotConsumeErrorBody() throws IOException {
+  @Test public void errorMessageHelper() throws IOException {
     ResponseBody errorBody = ResponseBody.create("This request failed.", null);
     BufferedSource source = errorBody.source();
     assertThat(LoggingCallAdapterFactory.errorMessage(errorBody)).isEqualTo("This request failed.");
-    assertThat(source.getBuffer().size()).isEqualTo(20);
-    assertThat(source.exhausted()).isFalse();
-    String errorBodyUtf8 = source.readUtf8();
-    assertThat(errorBodyUtf8).isEqualTo("This request failed.");
     assertThat(source.exhausted()).isTrue();
   }
 
@@ -58,14 +53,15 @@ public final class LoggingCallAdapterFactoryTest {
     @GET("/{a}") Call<Void> getWithPath(@Path("a") Object a);
   }
 
-  @Test public void disallowsConsumingErrorBody() throws IOException {
+  @Test public void cannotConsumeErrorBody() throws IOException {
     MockWebServer server = new MockWebServer();
     Retrofit retrofit = new Retrofit.Builder().baseUrl(server.url("/"))
         .addCallAdapterFactory(
             new LoggingCallAdapterFactory(new LoggingCallAdapterFactory.Logger() {
               @Override public <T> void onResponse(Call<T> call, Response<T> response) {
                 try {
-                  response.errorBody().source().readByte();
+                  assertThat(response.errorBody().source().readUtf8())
+                      .isEqualTo("This request failed.");
                 } catch (IOException e) {
                   throw new AssertionError(e);
                 }
@@ -79,13 +75,8 @@ public final class LoggingCallAdapterFactoryTest {
         .build();
     Service service = retrofit.create(Service.class);
     server.enqueue(new MockResponse().setResponseCode(400).setBody("This request failed."));
-    try {
-      service.getString().execute();
-      fail();
-    } catch (IllegalStateException e) {
-      assertThat(e).hasMessageThat().isEqualTo(
-          "Do not consume the error body. Bytes before: 20. Bytes after: 19.");
-    }
+    Response<String> response = service.getString().execute();
+    assertThat(response.errorBody().source().readUtf8()).isEqualTo("This request failed.");
   }
 
   @Test public void enqueueLogsOnResponse() throws InterruptedException {
