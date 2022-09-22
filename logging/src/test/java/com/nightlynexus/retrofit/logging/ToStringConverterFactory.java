@@ -15,7 +15,6 @@
  */
 package com.nightlynexus.retrofit.logging;
 
-import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import okhttp3.MediaType;
@@ -30,11 +29,7 @@ final class ToStringConverterFactory extends Converter.Factory {
   @Override public Converter<ResponseBody, ?> responseBodyConverter(Type type,
       Annotation[] annotations, Retrofit retrofit) {
     if (String.class.equals(type)) {
-      return new Converter<ResponseBody, String>() {
-        @Override public String convert(ResponseBody value) throws IOException {
-          return value.string();
-        }
-      };
+      return (Converter<ResponseBody, String>) value -> value.string();
     }
     return null;
   }
@@ -42,11 +37,7 @@ final class ToStringConverterFactory extends Converter.Factory {
   @Override public Converter<?, RequestBody> requestBodyConverter(Type type,
       Annotation[] parameterAnnotations, Annotation[] methodAnnotations, Retrofit retrofit) {
     if (String.class.equals(type)) {
-      return new Converter<String, RequestBody>() {
-        @Override public RequestBody convert(String value) throws IOException {
-          return RequestBody.create(MEDIA_TYPE, value);
-        }
-      };
+      return (Converter<String, RequestBody>) value -> RequestBody.create(value, MEDIA_TYPE);
     }
     return null;
   }

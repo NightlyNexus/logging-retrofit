@@ -8,6 +8,7 @@ import java.util.Locale;
 import okhttp3.Request;
 import okhttp3.ResponseBody;
 import okio.Buffer;
+import okio.Timeout;
 import retrofit2.Call;
 import retrofit2.CallAdapter;
 import retrofit2.Callback;
@@ -51,7 +52,7 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
     if (!isPlaintext(buffer)) {
       return "Error body is not plain text.";
     }
-    return ResponseBody.create(errorBody.contentType(), buffer.size(), buffer).string();
+    return ResponseBody.create(buffer, errorBody.contentType(), buffer.size()).string();
   }
 
   /**
@@ -127,7 +128,7 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
     }
 
     @Override public void enqueue(final Callback<R> callback) {
-      delegate.enqueue(new Callback<R>() {
+      delegate.enqueue(new Callback<>() {
         @Override public void onResponse(Call<R> call, Response<R> response) {
           logResponse(response);
           callback.onResponse(call, response);
@@ -181,6 +182,11 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
 
     @Override public Request request() {
       return delegate.request();
+    }
+
+    @Override
+    public Timeout timeout() {
+      return delegate.timeout();
     }
   }
 }
