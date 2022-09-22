@@ -4,10 +4,10 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
-import java.util.Locale;
 import okhttp3.Request;
 import okhttp3.ResponseBody;
 import okio.Buffer;
+import okio.BufferedSource;
 import okio.Timeout;
 import retrofit2.Call;
 import retrofit2.CallAdapter;
@@ -38,17 +38,15 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
   }
 
   /**
-   * Reads a {@link ResponseBody} as a string. This is useful for logging error bodies. Does not
-   * consume the {@code errorBody}.
-   * <p>Warning: Error bodies can be very large because they can come from unexpected sources.
-   * Only call this method if you are sure you can buffer the entire body into memory.
+   * Reads a {@link ResponseBody} as a string. This is useful for logging error bodies. Consumes the
+   * {@code errorBody}.
    */
   public static String errorMessage(ResponseBody errorBody) throws IOException {
     if (errorBody.contentLength() == 0) {
       return "";
     }
     Buffer buffer = new Buffer();
-    buffer.writeAll(errorBody.source().peek());
+    buffer.writeAll(errorBody.source());
     if (!isPlaintext(buffer)) {
       return "Error body is not plain text.";
     }
@@ -116,14 +114,12 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
       if (response.isSuccessful()) {
         logger.onResponse(this, response);
       } else {
-        Buffer buffer = response.errorBody().source().getBuffer();
-        long bufferByteCount = buffer.size();
-        logger.onResponse(this, response);
-        if (bufferByteCount != buffer.size()) {
-          throw new IllegalStateException(String.format(Locale.US,
-              "Do not consume the error body. Bytes before: %1$d. Bytes after: %2$d.",
-              bufferByteCount, buffer.size()));
-        }
+        ResponseBody errorBody = response.errorBody();
+        BufferedSource peekedErrorBodySource = errorBody.source().peek();
+        ResponseBody peekedResponseBody = ResponseBody.create(peekedErrorBodySource,
+            errorBody.contentType(), errorBody.contentLength());
+        Response<R> peekedResponse = Response.error(peekedResponseBody, response.raw());
+        logger.onResponse(this, peekedResponse);
       }
     }
 
