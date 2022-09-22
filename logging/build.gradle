@@ -1,15 +1,12 @@
-apply plugin: 'java'
-
-targetCompatibility = JavaVersion.VERSION_1_7
-sourceCompatibility = JavaVersion.VERSION_1_7
+apply plugin: 'java-library'
 
 dependencies {
-  compile deps.okhttp.core
-  compile deps.okio
-  compile deps.retrofit
-  testCompile deps.junit
-  testCompile deps.okhttp.mockwebserver
-  testCompile deps.truth
+  api deps.okhttp.core
+  api deps.okio
+  api deps.retrofit
+  testImplementation deps.junit
+  testImplementation deps.okhttp.mockwebserver
+  testImplementation deps.truth
 }
 
 apply from: rootProject.file('gradle/gradle-mvn-push.gradle')
