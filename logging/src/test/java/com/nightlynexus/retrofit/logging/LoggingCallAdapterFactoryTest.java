@@ -31,7 +31,7 @@ import static org.junit.Assert.fail;
 @RunWith(JUnit4.class)
 public final class LoggingCallAdapterFactoryTest {
   @Test public void errorMessageHelperDoesNotConsumeErrorBody() throws IOException {
-    ResponseBody errorBody = ResponseBody.create(null, "This request failed.");
+    ResponseBody errorBody = ResponseBody.create("This request failed.", null);
     BufferedSource source = errorBody.source();
     assertThat(LoggingCallAdapterFactory.errorMessage(errorBody)).isEqualTo("This request failed.");
     assertThat(source.getBuffer().size()).isEqualTo(20);
@@ -42,12 +42,12 @@ public final class LoggingCallAdapterFactoryTest {
   }
 
   @Test public void errorMessageHelperReturnsEmptyStringForEmptyBody() throws IOException {
-    ResponseBody errorBody = ResponseBody.create(null, new byte[0]);
+    ResponseBody errorBody = ResponseBody.create(new byte[0], null);
     assertThat(LoggingCallAdapterFactory.errorMessage(errorBody)).isEmpty();
   }
 
   @Test public void errorMessageHelperChecksForPlainText() throws IOException {
-    ResponseBody errorBody = ResponseBody.create(null, String.valueOf((char) 0x9F));
+    ResponseBody errorBody = ResponseBody.create(String.valueOf((char) 0x9F), null);
     assertThat(LoggingCallAdapterFactory.errorMessage(errorBody))
         .isEqualTo("Error body is not plain text.");
   }
@@ -106,11 +106,13 @@ public final class LoggingCallAdapterFactoryTest {
         .build();
     Service service = retrofit.create(Service.class);
     server.enqueue(new MockResponse());
-    service.getString().enqueue(new Callback<String>() {
-      @Override public void onResponse(Call<String> call, Response<String> response) {
+    service.getString().enqueue(new Callback<>() {
+      @Override
+      public void onResponse(Call<String> call, Response<String> response) {
       }
 
-      @Override public void onFailure(Call<String> call, Throwable t) {
+      @Override
+      public void onFailure(Call<String> call, Throwable t) {
         throw new AssertionError();
       }
     });
@@ -157,7 +159,7 @@ public final class LoggingCallAdapterFactoryTest {
         .build();
     Service service = retrofit.create(Service.class);
     server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START));
-    service.getString().enqueue(new Callback<String>() {
+    service.getString().enqueue(new Callback<>() {
       @Override public void onResponse(Call<String> call, Response<String> response) {
         throw new AssertionError();
       }
@@ -168,7 +170,7 @@ public final class LoggingCallAdapterFactoryTest {
     assertThat(latch.await(10, SECONDS)).isTrue();
   }
 
-  @Test public void executeLogsOnFailure() throws Exception {
+  @Test public void executeLogsOnFailure() {
     MockWebServer server = new MockWebServer();
     final AtomicBoolean onFailureCalled = new AtomicBoolean();
     Retrofit retrofit = new Retrofit.Builder().baseUrl(server.url("/"))
@@ -213,17 +215,15 @@ public final class LoggingCallAdapterFactoryTest {
         .addConverterFactory(new Converter.Factory() {
           @Override public Converter<ResponseBody, ?> responseBodyConverter(Type type,
               Annotation[] annotations, Retrofit retrofit) {
-            return new Converter<ResponseBody, Object>() {
-              @Override public Object convert(ResponseBody value) throws IOException {
-                throw new RuntimeException("Broken!");
-              }
+            return (Converter<ResponseBody, Object>) value -> {
+              throw new RuntimeException("Broken!");
             };
           }
         })
         .build();
     Service service = retrofit.create(Service.class);
     server.enqueue(new MockResponse());
-    service.getString().enqueue(new Callback<String>() {
+    service.getString().enqueue(new Callback<>() {
       @Override public void onResponse(Call<String> call, Response<String> response) {
         throw new AssertionError();
       }
@@ -251,10 +251,8 @@ public final class LoggingCallAdapterFactoryTest {
         .addConverterFactory(new Converter.Factory() {
           @Override public Converter<ResponseBody, ?> responseBodyConverter(Type type,
               Annotation[] annotations, Retrofit retrofit) {
-            return new Converter<ResponseBody, Object>() {
-              @Override public Object convert(ResponseBody value) throws IOException {
-                throw new RuntimeException("Broken!");
-              }
+            return (Converter<ResponseBody, Object>) value -> {
+              throw new RuntimeException("Broken!");
             };
           }
         })
@@ -287,10 +285,8 @@ public final class LoggingCallAdapterFactoryTest {
         .addConverterFactory(new Converter.Factory() {
           @Override public Converter<ResponseBody, ?> responseBodyConverter(Type type,
               Annotation[] annotations, Retrofit retrofit) {
-            return new Converter<ResponseBody, Object>() {
-              @Override public Object convert(ResponseBody value) throws IOException {
-                throw new OutOfMemoryError("Broken!");
-              }
+            return (Converter<ResponseBody, Object>) value -> {
+              throw new OutOfMemoryError("Broken!");
             };
           }
         })
@@ -331,12 +327,14 @@ public final class LoggingCallAdapterFactoryTest {
       }
     };
     Call<Void> call = service.getWithPath(a);
-    call.enqueue(new Callback<Void>() {
-      @Override public void onResponse(Call<Void> call, Response<Void> response) {
+    call.enqueue(new Callback<>() {
+      @Override
+      public void onResponse(Call<Void> call, Response<Void> response) {
         throw new AssertionError();
       }
 
-      @Override public void onFailure(Call<Void> call, Throwable t) {
+      @Override
+      public void onFailure(Call<Void> call, Throwable t) {
       }
     });
     assertThat(failureRef.get()).isInstanceOf(RuntimeException.class);
@@ -405,12 +403,14 @@ public final class LoggingCallAdapterFactoryTest {
     };
     Call<Void> call = service.getWithPath(a);
     try {
-      call.enqueue(new Callback<Void>() {
-        @Override public void onResponse(Call<Void> call, Response<Void> response) {
+      call.enqueue(new Callback<>() {
+        @Override
+        public void onResponse(Call<Void> call, Response<Void> response) {
           throw new AssertionError();
         }
 
-        @Override public void onFailure(Call<Void> call, Throwable t) {
+        @Override
+        public void onFailure(Call<Void> call, Throwable t) {
           throw new AssertionError();
         }
       });
