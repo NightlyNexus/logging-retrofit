@@ -125,7 +125,7 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
     }
 
     @Override public void enqueue(final Callback<R> callback) {
-      delegate.enqueue(new Callback<>() {
+      delegate.enqueue(new Callback<R>() {
         @Override public void onResponse(Call<R> call, Response<R> response) {
           logResponse(response);
           callback.onResponse(call, response);
