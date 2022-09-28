@@ -38,8 +38,8 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
   }
 
   /**
-   * Reads a {@link ResponseBody} as a string. This is useful for logging error bodies. Consumes the
-   * {@code errorBody}.
+   * Reads a {@link ResponseBody} as a string or {@code null} if the error message is not plain
+   * text. This is useful for logging error bodies. Consumes the {@code errorBody}.
    */
   public static String errorMessage(ResponseBody errorBody) throws IOException {
     if (errorBody.contentLength() == 0) {
@@ -48,8 +48,9 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
     Buffer buffer = new Buffer();
     buffer.writeAll(errorBody.source());
     if (!isPlaintext(buffer)) {
-      return "Error body is not plain text.";
+      return null;
     }
+    // ResponseBody reads the BOM (if it exists) for us.
     return ResponseBody.create(buffer, errorBody.contentType(), buffer.size()).string();
   }
 
