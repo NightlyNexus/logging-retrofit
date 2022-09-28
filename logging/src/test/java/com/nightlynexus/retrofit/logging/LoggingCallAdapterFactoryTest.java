@@ -96,7 +96,7 @@ public final class LoggingCallAdapterFactoryTest {
         .build();
     Service service = retrofit.create(Service.class);
     server.enqueue(new MockResponse());
-    service.getString().enqueue(new Callback<>() {
+    service.getString().enqueue(new Callback<String>() {
       @Override
       public void onResponse(Call<String> call, Response<String> response) {
       }
@@ -149,7 +149,7 @@ public final class LoggingCallAdapterFactoryTest {
         .build();
     Service service = retrofit.create(Service.class);
     server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START));
-    service.getString().enqueue(new Callback<>() {
+    service.getString().enqueue(new Callback<String>() {
       @Override public void onResponse(Call<String> call, Response<String> response) {
         throw new AssertionError();
       }
@@ -213,7 +213,7 @@ public final class LoggingCallAdapterFactoryTest {
         .build();
     Service service = retrofit.create(Service.class);
     server.enqueue(new MockResponse());
-    service.getString().enqueue(new Callback<>() {
+    service.getString().enqueue(new Callback<String>() {
       @Override public void onResponse(Call<String> call, Response<String> response) {
         throw new AssertionError();
       }
@@ -317,7 +317,7 @@ public final class LoggingCallAdapterFactoryTest {
       }
     };
     Call<Void> call = service.getWithPath(a);
-    call.enqueue(new Callback<>() {
+    call.enqueue(new Callback<Void>() {
       @Override
       public void onResponse(Call<Void> call, Response<Void> response) {
         throw new AssertionError();
@@ -393,7 +393,7 @@ public final class LoggingCallAdapterFactoryTest {
     };
     Call<Void> call = service.getWithPath(a);
     try {
-      call.enqueue(new Callback<>() {
+      call.enqueue(new Callback<Void>() {
         @Override
         public void onResponse(Call<Void> call, Response<Void> response) {
           throw new AssertionError();
