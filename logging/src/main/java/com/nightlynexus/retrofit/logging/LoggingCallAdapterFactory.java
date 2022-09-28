@@ -3,6 +3,7 @@ package com.nightlynexus.retrofit.logging;
 import java.io.EOFException;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;
 import okhttp3.Request;
 import okhttp3.ResponseBody;
@@ -12,8 +13,10 @@ import okio.Timeout;
 import retrofit2.Call;
 import retrofit2.CallAdapter;
 import retrofit2.Callback;
+import retrofit2.Invocation;
 import retrofit2.Response;
 import retrofit2.Retrofit;
+import retrofit2.http.Body;
 
 /**
  * A CallAdapter.Factory that intercepts calls' synchronous executions and asynchronously called
@@ -26,12 +29,23 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
    * It is an error to mutate the call from these methods.
    */
   public interface Logger {
-    <T> void onResponse(Call<T> call, Response<T> response);
+    Object UNBUILT_REQUEST_BODY = new Object();
 
-    <T> void onFailure(Call<T> call, Throwable t);
+    /**
+     * @param requestBody The object supplied to the {@link Body} Retrofit service method parameter
+     *                    or null if there is no such parameter.
+     */
+    <T> void onResponse(Call<T> call, Object requestBody, Response<T> response);
+
+    /**
+     * @param requestBody The object supplied to the {@link Body} Retrofit service method parameter,
+     *                    null if there is no such parameter, or {@link #UNBUILT_REQUEST_BODY} if
+     *                    the request failed to be built.
+     */
+    <T> void onFailure(Call<T> call, Object requestBody, Throwable t);
   }
 
-  private final Logger logger;
+  final Logger logger;
 
   public LoggingCallAdapterFactory(Logger logger) {
     this.logger = logger;
@@ -58,7 +72,7 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
    * Returns true if the body in question probably contains human readable text. Uses a small sample
    * of code points to detect unicode control characters commonly used in binary file signatures.
    */
-  private static boolean isPlaintext(Buffer buffer) {
+  static boolean isPlaintext(Buffer buffer) {
     try {
       Buffer prefix = new Buffer();
       long byteCount = buffer.size() < 64 ? buffer.size() : 64;
@@ -84,9 +98,9 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
     return new LoggingCallAdapter<>(delegate, logger);
   }
 
-  private static final class LoggingCallAdapter<R, T> implements CallAdapter<R, T> {
-    private final CallAdapter<R, T> delegate;
-    private final Logger logger;
+  static final class LoggingCallAdapter<R, T> implements CallAdapter<R, T> {
+    final CallAdapter<R, T> delegate;
+    final Logger logger;
 
     LoggingCallAdapter(CallAdapter<R, T> delegate, Logger logger) {
       this.delegate = delegate;
@@ -102,37 +116,63 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
     }
   }
 
-  private static final class LoggingCall<R> implements Call<R> {
+  static final class LoggingCall<R> implements Call<R> {
     final Logger logger;
-    private final Call<R> delegate;
+    final Call<R> delegate;
 
     LoggingCall(Logger logger, Call<R> delegate) {
       this.logger = logger;
       this.delegate = delegate;
     }
 
-    void logResponse(Response<R> response) {
+    void logResponse(Object requestBody, Response<R> response) {
       if (response.isSuccessful()) {
-        logger.onResponse(this, response);
+        logger.onResponse(this, requestBody, response);
       } else {
         ResponseBody errorBody = response.errorBody();
         BufferedSource peekedErrorBodySource = errorBody.source().peek();
         ResponseBody peekedResponseBody = ResponseBody.create(peekedErrorBodySource,
             errorBody.contentType(), errorBody.contentLength());
         Response<R> peekedResponse = Response.error(peekedResponseBody, response.raw());
-        logger.onResponse(this, peekedResponse);
+        logger.onResponse(this, requestBody, peekedResponse);
       }
     }
 
-    @Override public void enqueue(final Callback<R> callback) {
+    Object requestBody() {
+      Request request;
+      try {
+        // Build the request if it has not been built yet.
+        request = delegate.request();
+      } catch (Throwable t) {
+        // The execute or enqueue call that immediately follows this requestBody call will handle
+        // the Throwable.
+        return Logger.UNBUILT_REQUEST_BODY;
+      }
+      Invocation invocation = request.tag(Invocation.class);
+      if (invocation == null) {
+        throw new NullPointerException("Missing Invocation tag. The custom Call.Factory needs " +
+            "to create a Calls with Requests that include the Invocation tag.");
+      }
+      Parameter[] parameters = invocation.method().getParameters();
+      for (int i = 0; i < parameters.length; i++) {
+        Parameter parameter = parameters[i];
+        if (parameter.getAnnotation(Body.class) != null) {
+          return invocation.arguments().get(i);
+        }
+      }
+      return null;
+    }
+
+    @Override public void enqueue(Callback<R> callback) {
+      Object requestBody = requestBody();
       delegate.enqueue(new Callback<R>() {
         @Override public void onResponse(Call<R> call, Response<R> response) {
-          logResponse(response);
+          logResponse(requestBody, response);
           callback.onResponse(call, response);
         }
 
         @Override public void onFailure(Call<R> call, Throwable t) {
-          logger.onFailure(call, t);
+          logger.onFailure(call, requestBody, t);
           callback.onFailure(call, t);
         }
       });
@@ -144,15 +184,16 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
 
     @Override public Response<R> execute() throws IOException {
       Response<R> response;
+      Object requestBody = requestBody();
       try {
         response = delegate.execute();
       } catch (Throwable t) {
         if (!isFatal(t)) {
-          logger.onFailure(this, t);
+          logger.onFailure(this, requestBody, t);
         }
         throw t;
       }
-      logResponse(response);
+      logResponse(requestBody, response);
       return response;
     }
 
