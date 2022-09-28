@@ -2,7 +2,6 @@ package com.nightlynexus.retrofit.logging;
 
 import java.io.IOException;
 import java.lang.annotation.Annotation;
-import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -46,8 +45,10 @@ public final class LoggingCallAdapterFactoryTest {
     assertThat(LoggingCallAdapterFactory.errorMessage(errorBody)).isNull();
   }
 
-  private interface Service {
+  interface Service {
     @GET("/") Call<String> getString();
+
+    @GET("/") TestCall getTestString();
 
     @GET("/{a}") Call<Void> getWithPath(@Path("a") Object a);
   }
@@ -444,9 +445,8 @@ public final class LoggingCallAdapterFactoryTest {
     assertThat(failureRef.get()).isNull();
   }
 
-  @Test public void delegatesCallAdapter() {
+  @Test public void delegatesCallAdapter() throws IOException {
     MockWebServer server = new MockWebServer();
-    AtomicBoolean delegateAdaptCalled = new AtomicBoolean();
     Retrofit retrofit = new Retrofit.Builder().baseUrl(server.url("/"))
         .addCallAdapterFactory(
             new LoggingCallAdapterFactory(new LoggingCallAdapterFactory.Logger() {
@@ -458,36 +458,28 @@ public final class LoggingCallAdapterFactoryTest {
                 throw new AssertionError();
               }
             }))
-        .addCallAdapterFactory(new TestCallAdapterFactory(delegateAdaptCalled))
-        .addConverterFactory(new ToStringConverterFactory())
+        .addCallAdapterFactory(new TestCall.AdapterFactory())
         .build();
     Service service = retrofit.create(Service.class);
-    server.enqueue(new MockResponse());
-    service.getString();
-    assertThat(delegateAdaptCalled.get()).isTrue();
+    // We would get a ClassCastException if the CallAdapter did not delegate.
+    service.getTestString();
   }
 
-  private static final class TestCallAdapterFactory extends CallAdapter.Factory {
-    final AtomicBoolean delegateAdaptCalled;
+  static final class TestCall {
+    static final class AdapterFactory extends CallAdapter.Factory {
+      @Override public CallAdapter<?, ?> get(Type returnType, Annotation[] annotations,
+          Retrofit retrofit) {
+        if (getRawType(returnType) != TestCall.class) return null;
+        return new CallAdapter<Object, TestCall>() {
+          @Override public Type responseType() {
+            return Void.class;
+          }
 
-    TestCallAdapterFactory(AtomicBoolean delegateAdaptCalled) {
-      this.delegateAdaptCalled = delegateAdaptCalled;
-    }
-
-    @Override public CallAdapter<?, ?> get(final Type returnType, Annotation[] annotations,
-        Retrofit retrofit) {
-      if (getRawType(returnType) != Call.class) return null;
-      final Type responseType = getParameterUpperBound(0, (ParameterizedType) returnType);
-      return new CallAdapter<Object, Call<?>>() {
-        @Override public Type responseType() {
-          return responseType;
-        }
-
-        @Override public Call<?> adapt(Call<Object> call) {
-          delegateAdaptCalled.set(true);
-          return call;
-        }
-      };
+          @Override public TestCall adapt(Call<Object> call) {
+            return new TestCall();
+          }
+        };
+      }
     }
   }
 }
