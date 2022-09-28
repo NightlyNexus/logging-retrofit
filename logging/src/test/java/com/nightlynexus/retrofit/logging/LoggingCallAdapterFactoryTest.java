@@ -43,8 +43,7 @@ public final class LoggingCallAdapterFactoryTest {
 
   @Test public void errorMessageHelperChecksForPlainText() throws IOException {
     ResponseBody errorBody = ResponseBody.create(String.valueOf((char) 0x9F), null);
-    assertThat(LoggingCallAdapterFactory.errorMessage(errorBody))
-        .isEqualTo("Error body is not plain text.");
+    assertThat(LoggingCallAdapterFactory.errorMessage(errorBody)).isNull();
   }
 
   private interface Service {
