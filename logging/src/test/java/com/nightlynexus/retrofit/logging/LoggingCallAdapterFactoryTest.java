@@ -478,7 +478,6 @@ public final class LoggingCallAdapterFactoryTest {
               }
             }))
         .addCallAdapterFactory(new TestCall.AdapterFactory())
-        .addConverterFactory(new ToStringConverterFactory())
         .build();
     Service service = retrofit.create(Service.class);
     // We would get a ClassCastException if the CallAdapter did not delegate.
