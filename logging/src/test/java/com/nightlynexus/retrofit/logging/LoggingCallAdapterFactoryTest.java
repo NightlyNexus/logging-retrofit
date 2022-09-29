@@ -306,7 +306,6 @@ public final class LoggingCallAdapterFactoryTest {
                 failureRef.set(t);
               }
             }))
-        .addConverterFactory(new ToStringConverterFactory())
         .build();
     Service service = retrofit.create(Service.class);
 
@@ -346,7 +345,6 @@ public final class LoggingCallAdapterFactoryTest {
                 failureRef.set(t);
               }
             }))
-        .addConverterFactory(new ToStringConverterFactory())
         .build();
     Service service = retrofit.create(Service.class);
 
@@ -381,7 +379,6 @@ public final class LoggingCallAdapterFactoryTest {
                 failureRef.set(t);
               }
             }))
-        .addConverterFactory(new ToStringConverterFactory())
         .build();
     Service service = retrofit.create(Service.class);
 
@@ -425,7 +422,6 @@ public final class LoggingCallAdapterFactoryTest {
                 failureRef.set(t);
               }
             }))
-        .addConverterFactory(new ToStringConverterFactory())
         .build();
     Service service = retrofit.create(Service.class);
 
