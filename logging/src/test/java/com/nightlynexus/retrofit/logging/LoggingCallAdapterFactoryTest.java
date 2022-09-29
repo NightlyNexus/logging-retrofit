@@ -48,7 +48,7 @@ public final class LoggingCallAdapterFactoryTest {
   interface Service {
     @GET("/") Call<String> getString();
 
-    @GET("/") TestCall getTestString();
+    @GET("/") TestCall getTest();
 
     @GET("/{a}") Call<Void> getWithPath(@Path("a") Object a);
   }
@@ -462,7 +462,7 @@ public final class LoggingCallAdapterFactoryTest {
         .build();
     Service service = retrofit.create(Service.class);
     // We would get a ClassCastException if the CallAdapter did not delegate.
-    service.getTestString();
+    service.getTest();
   }
 
   static final class TestCall {
