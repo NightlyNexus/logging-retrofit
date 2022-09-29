@@ -3,6 +3,7 @@ package com.nightlynexus.retrofit.logging;
 import java.io.EOFException;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;
 import okhttp3.Request;
 import okhttp3.ResponseBody;
@@ -12,8 +13,10 @@ import okio.Timeout;
 import retrofit2.Call;
 import retrofit2.CallAdapter;
 import retrofit2.Callback;
+import retrofit2.Invocation;
 import retrofit2.Response;
 import retrofit2.Retrofit;
+import retrofit2.http.Body;
 
 /**
  * A CallAdapter.Factory that intercepts calls' synchronous executions and asynchronously called
@@ -31,10 +34,44 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
     <T> void onFailure(Call<T> call, Throwable t);
   }
 
-  private final Logger logger;
+  final Logger logger;
 
   public LoggingCallAdapterFactory(Logger logger) {
     this.logger = logger;
+  }
+
+  public static Object UNBUILT_REQUEST_BODY = new Object();
+
+  /**
+   * @return
+   * the object supplied to the {@link Body} Retrofit service method parameter,
+   * null if there is no such parameter, or
+   * {@link #UNBUILT_REQUEST_BODY} if the request failed to be built.
+   */
+  public static Object requestBody(Call<?> call) {
+    Request request;
+    try {
+      // Build the request if it has not been built yet.
+      request = call.request();
+    } catch (Throwable t) {
+      if (isFatal(t)) {
+        throw t;
+      }
+      return UNBUILT_REQUEST_BODY;
+    }
+    Invocation invocation = request.tag(Invocation.class);
+    if (invocation == null) {
+      throw new NullPointerException("Missing Invocation tag. The custom Call.Factory needs " +
+          "to create Calls with Requests that include the Invocation tag.");
+    }
+    Parameter[] parameters = invocation.method().getParameters();
+    for (int i = 0; i < parameters.length; i++) {
+      Parameter parameter = parameters[i];
+      if (parameter.getAnnotation(Body.class) != null) {
+        return invocation.arguments().get(i);
+      }
+    }
+    return null;
   }
 
   /**
@@ -58,7 +95,7 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
    * Returns true if the body in question probably contains human readable text. Uses a small sample
    * of code points to detect unicode control characters commonly used in binary file signatures.
    */
-  private static boolean isPlaintext(Buffer buffer) {
+  static boolean isPlaintext(Buffer buffer) {
     try {
       Buffer prefix = new Buffer();
       long byteCount = buffer.size() < 64 ? buffer.size() : 64;
@@ -84,9 +121,9 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
     return new LoggingCallAdapter<>(delegate, logger);
   }
 
-  private static final class LoggingCallAdapter<R, T> implements CallAdapter<R, T> {
-    private final CallAdapter<R, T> delegate;
-    private final Logger logger;
+  static final class LoggingCallAdapter<R, T> implements CallAdapter<R, T> {
+    final CallAdapter<R, T> delegate;
+    final Logger logger;
 
     LoggingCallAdapter(CallAdapter<R, T> delegate, Logger logger) {
       this.delegate = delegate;
@@ -102,9 +139,9 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
     }
   }
 
-  private static final class LoggingCall<R> implements Call<R> {
+  static final class LoggingCall<R> implements Call<R> {
     final Logger logger;
-    private final Call<R> delegate;
+    final Call<R> delegate;
 
     LoggingCall(Logger logger, Call<R> delegate) {
       this.logger = logger;
@@ -156,14 +193,6 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
       return response;
     }
 
-    // https://github.com/square/retrofit/blob/parent-2.5.0/
-    // retrofit/src/main/java/retrofit2/Utils.java#L520
-    static boolean isFatal(Throwable e) {
-      return e instanceof VirtualMachineError
-          || e instanceof ThreadDeath
-          || e instanceof LinkageError;
-    }
-
     @Override public void cancel() {
       delegate.cancel();
     }
@@ -185,5 +214,13 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
     public Timeout timeout() {
       return delegate.timeout();
     }
+  }
+
+  // https://github.com/square/retrofit/blob/parent-2.5.0/
+  // retrofit/src/main/java/retrofit2/Utils.java#L520
+  static boolean isFatal(Throwable e) {
+    return e instanceof VirtualMachineError
+        || e instanceof ThreadDeath
+        || e instanceof LinkageError;
   }
 }
