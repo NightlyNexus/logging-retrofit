@@ -151,7 +151,7 @@ public final class LoggingCallAdapterFactory extends CallAdapter.Factory {
       Invocation invocation = request.tag(Invocation.class);
       if (invocation == null) {
         throw new NullPointerException("Missing Invocation tag. The custom Call.Factory needs " +
-            "to create a Calls with Requests that include the Invocation tag.");
+            "to create Calls with Requests that include the Invocation tag.");
       }
       Parameter[] parameters = invocation.method().getParameters();
       for (int i = 0; i < parameters.length; i++) {

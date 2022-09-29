@@ -632,7 +632,7 @@ public final class LoggingCallAdapterFactoryTest {
       throw new AssertionError();
     } catch (NullPointerException expected) {
       assertThat(expected).hasMessageThat().isEqualTo("Missing Invocation tag. The custom " +
-          "Call.Factory needs to create a Calls with Requests that include the Invocation tag.");
+          "Call.Factory needs to create Calls with Requests that include the Invocation tag.");
     }
   }
 
