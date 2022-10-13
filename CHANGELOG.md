@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+Version 0.12.0 *(2022-10-12)*
+----------------------------
+
+- New API: The static helper method `LoggingCallAdapterFactory.requestBody(Call<?>)` returns the object supplied to the `@Body` Retrofit service method parameter.
+
 Version 0.11.0 *(2022-09-22)*
 ----------------------------
 
